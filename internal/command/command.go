@@ -28,7 +28,7 @@ import (
 func ParseInto[P types.ParameterView](ctx *context.Context[P], dest *types.Command[P]) error {
 	err := readCommandHeaderInto(ctx.Reader, dest)
 
-	if dest.Type > types.SendReliableFragmentCommand {
+	if !types.IsKnownCommandType(dest.Type) {
 		remaining := ctx.Reader.Max - ctx.Reader.Cursor - 1
 
 		if ctx.Config.SkipUnknownPayloads {
@@ -86,7 +86,7 @@ func readCommandHeaderInto[P types.ParameterView](r *reader.Reader, dest *types.
 
 	dest.Type = types.CommandType(b)
 
-	if dest.Type > types.SendReliableFragmentCommand {
+	if !types.IsKnownCommandType(dest.Type) {
 		return nil
 	}
 
@@ -120,7 +120,7 @@ func readCommandHeaderInto[P types.ParameterView](r *reader.Reader, dest *types.
 
 func readCommandPayloadInto[P types.ParameterView](ctx *context.Context[P], dest *types.Command[P]) error {
 	switch dest.Type {
-	case types.SendUnreliableCommand:
+	case types.SendUnreliableCommand, types.SendUnreliableUnsequenced:
 
 		_, err := ctx.Reader.ReadBytes(4)
 		if err != nil {
@@ -162,6 +162,8 @@ func readCommandPayloadInto[P types.ParameterView](ctx *context.Context[P], dest
 		}
 	case types.PingCommand:
 		dest.PingPayload = struct{}{}
+	case types.FetchServerTimestampCommand:
+		dest.FetchTimestampPayload = struct{}{}
 	case types.DisconnectCommand:
 		dest.DisconnectPayload = struct{}{}
 	default:
@@ -202,7 +204,7 @@ func DetachForAsync[P types.ParameterView](cmd types.Command[P]) types.Command[P
 			copy(p, s.ReliablePayload.Parameters)
 			s.ReliablePayload.Parameters = p
 		}
-	case types.SendUnreliableCommand:
+	case types.SendUnreliableCommand, types.SendUnreliableUnsequenced:
 		if n := len(s.UnreliablePayload.Parameters); n > 0 {
 			p := make([]P, n)
 			copy(p, s.UnreliablePayload.Parameters)

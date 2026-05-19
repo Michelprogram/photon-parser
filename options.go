@@ -15,6 +15,8 @@ func defaultConfig() types.Config {
 		types.SendReliableCommand:         false,
 		types.SendUnreliableCommand:       false,
 		types.SendReliableFragmentCommand: false,
+		types.SendUnreliableUnsequenced:   false,
+		types.FetchServerTimestampCommand: false,
 		types.AcknowledgeCommand:          false,
 		types.ConnectCommand:              false,
 		types.VerifyConnectCommand:        false,

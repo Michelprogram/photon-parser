@@ -38,7 +38,7 @@ func ParseInto[P types.ParameterView](ctx *context.Context[P], dest *types.Sessi
 			return err
 		}
 
-		if dest.Commands[i].Type > types.SendReliableFragmentCommand {
+		if !types.IsKnownCommandType(dest.Commands[i].Type) {
 			break
 		}
 	}

@@ -12,6 +12,8 @@ const (
 	SendReliableCommand         CommandType = 0x06
 	SendUnreliableCommand       CommandType = 0x07
 	SendReliableFragmentCommand CommandType = 0x08
+	SendUnreliableUnsequenced   CommandType = 0x0B
+	FetchServerTimestampCommand CommandType = 0x0C
 )
 
 // COMMAND_HEADER_SIZE is the size in bytes of a command header (12 bytes).
@@ -38,7 +40,26 @@ type Command[P ParameterView] struct {
 	ConnectPayload          Connect        `json:"connect_payload"`
 	UnknownPayload          UnknownPayload `json:"unknown_payload"`
 	PingPayload             struct{}       `json:"ping_payload"`
+	FetchTimestampPayload   struct{}       `json:"fetch_timestamp_payload"`
 	DisconnectPayload       struct{}       `json:"disconnect_payload"`
+}
+
+func IsKnownCommandType(t CommandType) bool {
+	switch t {
+	case AcknowledgeCommand,
+		ConnectCommand,
+		VerifyConnectCommand,
+		DisconnectCommand,
+		PingCommand,
+		SendReliableCommand,
+		SendUnreliableCommand,
+		SendReliableFragmentCommand,
+		SendUnreliableUnsequenced,
+		FetchServerTimestampCommand:
+		return true
+	default:
+		return false
+	}
 }
 
 type Connect struct {
