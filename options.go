@@ -10,34 +10,7 @@ type Option func(*types.Config)
 // event codes skipped. It is applied automatically by [NewParserV16] and
 // [NewParserV18] before any caller-supplied Options are evaluated.
 func defaultConfig() types.Config {
-
-	skipCommands := map[types.CommandType]bool{
-		types.SendReliableCommand:         false,
-		types.SendUnreliableCommand:       false,
-		types.SendReliableFragmentCommand: false,
-		types.SendUnreliableUnsequenced:   false,
-		types.FetchServerTimestampCommand: false,
-		types.AcknowledgeCommand:          false,
-		types.ConnectCommand:              false,
-		types.VerifyConnectCommand:        false,
-		types.PingCommand:                 false,
-		types.DisconnectCommand:           false,
-	}
-
-	skipTargetEventCodes := map[types.MessageType]bool{
-		types.OperationRequest:       false,
-		types.OperationResponse:      false,
-		types.OtherOperationResponse: false,
-		types.EventDataType:          false,
-		types.ExchangeKeys:           false,
-	}
-
-	return types.Config{
-		SkipUnknownPayloads:  false,
-		SkipParameterParsing: false,
-		SkipCommands:         skipCommands,
-		SkipTargetEventCodes: skipTargetEventCodes,
-	}
+	return types.Config{}
 }
 
 // SkipUnknownPayloads controls whether the parser silently skips command
@@ -80,6 +53,12 @@ func SkipParameterParsing(skip bool) Option {
 //	)
 func SkipCommands(commands ...types.CommandType) Option {
 	return func(c *types.Config) {
+		if len(commands) == 0 {
+			return
+		}
+		if c.SkipCommands == nil {
+			c.SkipCommands = make(map[types.CommandType]bool, len(commands))
+		}
 		for _, t := range commands {
 			c.SkipCommands[t] = true
 		}
@@ -99,6 +78,12 @@ func SkipCommands(commands ...types.CommandType) Option {
 //	)
 func SkipTargetEventCodes(codes ...types.MessageType) Option {
 	return func(c *types.Config) {
+		if len(codes) == 0 {
+			return
+		}
+		if c.SkipTargetEventCodes == nil {
+			c.SkipTargetEventCodes = make(map[types.MessageType]bool, len(codes))
+		}
 		for _, code := range codes {
 			c.SkipTargetEventCodes[code] = true
 		}

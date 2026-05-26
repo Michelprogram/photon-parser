@@ -90,7 +90,8 @@ func emit[P types.ParameterView](hooks *hooks.Hooks[P], dest *types.Session[P]) 
 		hooks.SyncHooks.OnSession(*dest)
 	}
 
-	if hooks.AsyncHooks.OnSession == nil {
+	ch := hooks.AsyncHooks.OnSession
+	if ch == nil || len(ch) == cap(ch) {
 		return
 	}
 
@@ -105,7 +106,7 @@ func emit[P types.ParameterView](hooks *hooks.Hooks[P], dest *types.Session[P]) 
 	}
 
 	select {
-	case hooks.AsyncHooks.OnSession <- s:
+	case ch <- s:
 	default:
 	}
 }

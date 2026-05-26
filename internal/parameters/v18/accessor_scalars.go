@@ -10,6 +10,9 @@ func (p Parameter) StringValue() (string, bool) {
 }
 
 func (p Parameter) Float32Value() (float32, bool) {
+	if p.Kind == FloatZeroType {
+		return 0, true
+	}
 	if p.Kind != Float32Type {
 		return 0, false
 	}
@@ -17,6 +20,9 @@ func (p Parameter) Float32Value() (float32, bool) {
 }
 
 func (p Parameter) Float64Value() (float64, bool) {
+	if p.Kind == DoubleZeroType {
+		return 0, true
+	}
 	if p.Kind != Float64Type {
 		return 0, false
 	}

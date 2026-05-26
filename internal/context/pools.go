@@ -20,9 +20,7 @@ func NewPool[P any](maxCap int) *Pool[P] {
 	return &Pool[P]{
 		pool: sync.Pool{
 			New: func() any {
-				return &PooledSlice[P]{
-					Items: make([]P, 0, maxCap),
-				}
+				return &PooledSlice[P]{}
 			},
 		},
 	}

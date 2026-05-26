@@ -381,6 +381,34 @@ func TestParserOnASinglePacketVersion18(t *testing.T) {
 	}
 }
 
+func TestKnownCommandPayloadRecoveryDoesNotOverSkipNextCommand(t *testing.T) {
+	payload := []byte{
+		0x00, 0x00, 0x00, 0x02, // session: peer ID, CRC disabled, 2 commands
+		0x00, 0x00, 0x00, 0x01, // timestamp
+		0x00, 0x00, 0x00, 0x00, // challenge
+
+		0x06, 0x00, 0x00, 0x00, // send reliable header prefix
+		0x00, 0x00, 0x00, 0x12, // command length: 12-byte header + 6-byte payload
+		0x00, 0x00, 0x00, 0x01, // reliable sequence number
+		0xf3, 0x02, 0x01, 0x01, // operation request with one parameter
+		0x00, 0xff, // unsupported parameter type consumes the full payload before failing
+
+		0x05, 0xff, 0x01, 0x04, // ping command header prefix
+		0x00, 0x00, 0x00, 0x0c, // command length: header only
+		0x00, 0x00, 0x00, 0x02, // reliable sequence number
+	}
+
+	parser := photon.NewParserV18(photon.SkipUnknownPayloads(true))
+	var session photon.SessionV18
+
+	if err := parser.ParsePacketInto(payload, &session); err != nil {
+		t.Fatalf("ParsePacketInto() error = %v", err)
+	}
+	if got := session.Commands[1].Type; got != photon.PingCommand {
+		t.Fatalf("second command type = %v, want %v", got, photon.PingCommand)
+	}
+}
+
 func BenchmarkParserOn343PacketsVersion18(b *testing.B) {
 	parser := photon.NewParserV18()
 	frames := loadCapturesB("./tests/dataset/v18/1.json", b)
