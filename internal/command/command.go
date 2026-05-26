@@ -27,8 +27,11 @@ import (
 // using the reliable package.
 func ParseInto[P types.ParameterView](ctx *context.Context[P], dest *types.Command[P]) error {
 	err := readCommandHeaderInto(ctx.Reader, dest)
+	if err != nil {
+		return err
+	}
 
-	if dest.Type > types.SendReliableFragmentCommand {
+	if !types.IsKnownCommandType(dest.Type) {
 		remaining := ctx.Reader.Max - ctx.Reader.Cursor - 1
 
 		if ctx.Config.SkipUnknownPayloads {
@@ -45,30 +48,33 @@ func ParseInto[P types.ParameterView](ctx *context.Context[P], dest *types.Comma
 		return nil
 	}
 
-	if err != nil {
-		return err
-	}
-
 	if dest.Length < types.COMMAND_HEADER_SIZE {
 		return errors.ErrHeaderSize
 	}
 
+	payloadStart := ctx.Reader.Cursor
+	payloadLen := int(dest.Length - types.COMMAND_HEADER_SIZE)
+	commandEnd := payloadStart + payloadLen
+
 	if ctx.Config.SkipCommands[dest.Type] {
-		remaining := int(dest.Length - types.COMMAND_HEADER_SIZE)
-		return ctx.Reader.Skip(remaining)
+		return ctx.Reader.Skip(payloadLen)
 	}
 
 	err = readCommandPayloadInto(ctx, dest)
 	if err != nil {
-		remaining := int(dest.Length - types.COMMAND_HEADER_SIZE)
+		remaining := commandEnd - ctx.Reader.Cursor
+		if remaining < 0 || commandEnd > ctx.Reader.Max {
+			return err
+		}
 
 		if ctx.Config.SkipUnknownPayloads {
 			return ctx.Reader.Skip(remaining)
 		}
 
-		rest, _ := ctx.Reader.ReadBytes(remaining)
-		// don't fatal — just store raw for encrypted packets
-		dest.UnknownPayload = types.UnknownPayload{Raw: rest, Kind: dest.Type}
+		// Don't fatal — store the full raw command payload for encrypted or
+		// otherwise unsupported payloads, then advance to the next command.
+		dest.UnknownPayload = types.UnknownPayload{Raw: ctx.Reader.Buffer[payloadStart:commandEnd], Kind: dest.Type}
+		ctx.Reader.Cursor = commandEnd
 	}
 
 	emit(ctx.Hooks, dest)
@@ -86,7 +92,7 @@ func readCommandHeaderInto[P types.ParameterView](r *reader.Reader, dest *types.
 
 	dest.Type = types.CommandType(b)
 
-	if dest.Type > types.SendReliableFragmentCommand {
+	if !types.IsKnownCommandType(dest.Type) {
 		return nil
 	}
 
@@ -120,7 +126,7 @@ func readCommandHeaderInto[P types.ParameterView](r *reader.Reader, dest *types.
 
 func readCommandPayloadInto[P types.ParameterView](ctx *context.Context[P], dest *types.Command[P]) error {
 	switch dest.Type {
-	case types.SendUnreliableCommand:
+	case types.SendUnreliableCommand, types.SendUnreliableUnsequenced:
 
 		_, err := ctx.Reader.ReadBytes(4)
 		if err != nil {
@@ -162,6 +168,8 @@ func readCommandPayloadInto[P types.ParameterView](ctx *context.Context[P], dest
 		}
 	case types.PingCommand:
 		dest.PingPayload = struct{}{}
+	case types.FetchServerTimestampCommand:
+		dest.FetchTimestampPayload = struct{}{}
 	case types.DisconnectCommand:
 		dest.DisconnectPayload = struct{}{}
 	default:
@@ -180,14 +188,15 @@ func emit[P types.ParameterView](hooks *hooks.Hooks[P], dest *types.Command[P]) 
 		hooks.SyncHooks.OnCommand(*dest)
 	}
 
-	if hooks.AsyncHooks.OnCommand == nil {
+	ch := hooks.AsyncHooks.OnCommand
+	if ch == nil || len(ch) == cap(ch) {
 		return
 	}
 
 	s := DetachForAsync(*dest)
 
 	select {
-	case hooks.AsyncHooks.OnCommand <- s:
+	case ch <- s:
 	default: // don't block parser
 	}
 
@@ -202,7 +211,7 @@ func DetachForAsync[P types.ParameterView](cmd types.Command[P]) types.Command[P
 			copy(p, s.ReliablePayload.Parameters)
 			s.ReliablePayload.Parameters = p
 		}
-	case types.SendUnreliableCommand:
+	case types.SendUnreliableCommand, types.SendUnreliableUnsequenced:
 		if n := len(s.UnreliablePayload.Parameters); n > 0 {
 			p := make([]P, n)
 			copy(p, s.UnreliablePayload.Parameters)

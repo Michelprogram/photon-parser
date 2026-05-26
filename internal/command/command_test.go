@@ -108,3 +108,95 @@ func TestParseSession(t *testing.T) {
 		t.Fatalf("LoadFromWiresharkExport() failed: %v", err)
 	}
 }
+
+func TestParseSendUnreliableUnsequencedCommand(t *testing.T) {
+	payload := []byte{
+		0x0b, 0x01, 0x02, 0x04, 0x00, 0x00, 0x00, 0x1d, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x3e,
+		0xf3, 0x02, 0x02, 0x02, 0x00, 0x0b, 0x79, 0x01, 0x05, 0x00, 0x00, 0x00, 0x00,
+	}
+
+	ctx := &context.Context[v18.Parameter]{
+		Reader: reader.NewReader(payload),
+		Decoders: context.Decoders[v18.Parameter]{
+			ParameterParser:              &v18.Parameter{},
+			ReliableHeaderParameterCount: &v18.ReliableHeaderParameterCountV18{},
+		},
+		PoolParameter: context.NewPool[v18.Parameter](10),
+		PoolCommand:   context.NewPool[types.Command[v18.Parameter]](10),
+	}
+
+	var cmd types.Command[v18.Parameter]
+	if err := command.ParseInto(ctx, &cmd); err != nil {
+		t.Fatalf("parse send unreliable unsequenced: %v", err)
+	}
+
+	if cmd.Type != 0x0b {
+		t.Fatalf("command type: got %d, want 11", cmd.Type)
+	}
+
+	if got := len(cmd.UnknownPayload.Raw); got != 0 {
+		t.Fatalf("unknown payload length: got %d, want 0", got)
+	}
+
+	if cmd.UnreliablePayload.Type != types.OperationRequest {
+		t.Fatalf("unreliable payload type: got %d, want %d", cmd.UnreliablePayload.Type, types.OperationRequest)
+	}
+
+	if cmd.UnreliablePayload.EventCode != 0x02 {
+		t.Fatalf("event code: got %d, want 2", cmd.UnreliablePayload.EventCode)
+	}
+
+	if cmd.UnreliablePayload.ParameterCount != 2 {
+		t.Fatalf("parameter count: got %d, want 2", cmd.UnreliablePayload.ParameterCount)
+	}
+
+	if got := len(cmd.UnreliablePayload.Parameters); got != 2 {
+		t.Fatalf("parameters length: got %d, want 2", got)
+	}
+	if cmd.UnreliablePayload.Parameters[0].Header.ID != 0x00 {
+		t.Fatalf("first parameter id: got %d, want 0", cmd.UnreliablePayload.Parameters[0].Header.ID)
+	}
+	if cmd.UnreliablePayload.Parameters[1].Header.ID != 0x01 {
+		t.Fatalf("second parameter id: got %d, want 1", cmd.UnreliablePayload.Parameters[1].Header.ID)
+	}
+}
+
+func TestParseFetchServerTimestampCommand(t *testing.T) {
+	payload := []byte{0x0c, 0xff, 0x01, 0x04, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x02}
+
+	ctx := &context.Context[v18.Parameter]{
+		Reader: reader.NewReader(payload),
+		Decoders: context.Decoders[v18.Parameter]{
+			ParameterParser:              &v18.Parameter{},
+			ReliableHeaderParameterCount: &v18.ReliableHeaderParameterCountV18{},
+		},
+		PoolParameter: context.NewPool[v18.Parameter](10),
+		PoolCommand:   context.NewPool[types.Command[v18.Parameter]](10),
+	}
+
+	var cmd types.Command[v18.Parameter]
+	if err := command.ParseInto(ctx, &cmd); err != nil {
+		t.Fatalf("parse fetch server timestamp: %v", err)
+	}
+
+	if cmd.Type != 0x0c {
+		t.Fatalf("command type: got %d, want 12", cmd.Type)
+	}
+
+	if got := len(cmd.UnknownPayload.Raw); got != 0 {
+		t.Fatalf("unknown payload length: got %d, want 0", got)
+	}
+
+	if cmd.ChannelID != 0xff {
+		t.Fatalf("channel id: got %d, want 255", cmd.ChannelID)
+	}
+
+	if cmd.Length != 12 {
+		t.Fatalf("length: got %d, want 12", cmd.Length)
+	}
+
+	if cmd.ReliableSequenceNumber != 2 {
+		t.Fatalf("reliable sequence number: got %d, want 2", cmd.ReliableSequenceNumber)
+	}
+}

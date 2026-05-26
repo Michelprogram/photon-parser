@@ -176,7 +176,7 @@ func scanPayload(reader *reader.Reader, dest *Value) error {
 		dest.Num = 1
 	case BooleanFalseType:
 		dest.Num = 0
-	case IntZeroType, ShortZeroType, LongZeroType, ByteZeroType:
+	case IntZeroType, ShortZeroType, LongZeroType, FloatZeroType, DoubleZeroType, ByteZeroType:
 		break
 	case ArrayType:
 		err = scanArray(reader, dest)

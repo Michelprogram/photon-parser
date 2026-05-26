@@ -116,6 +116,61 @@ func TestParseFloat32ParameterAndAccessor(t *testing.T) {
 	}
 }
 
+func TestParseZeroFloatParametersAndAccessors(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      []byte
+		wantID     uint8
+		wantKind   v18.ParameterType
+		wantCursor int
+	}{
+		{
+			name:       "float32 zero shorthand",
+			input:      []byte{0x01, byte(v18.FloatZeroType)},
+			wantID:     1,
+			wantKind:   v18.FloatZeroType,
+			wantCursor: 2,
+		},
+		{
+			name:       "float64 zero shorthand",
+			input:      []byte{0x02, byte(v18.DoubleZeroType)},
+			wantID:     2,
+			wantKind:   v18.DoubleZeroType,
+			wantCursor: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := reader.NewReader(tt.input)
+			var parser v18.Parameter
+			var got v18.Parameter
+
+			if err := parser.ParseInto(r, nil, &got); err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+			if got.ID() != tt.wantID {
+				t.Errorf("ID() = %d, want %d", got.ID(), tt.wantID)
+			}
+			if got.Kind != tt.wantKind {
+				t.Errorf("Kind = %d, want %d", got.Kind, tt.wantKind)
+			}
+			if r.Cursor != tt.wantCursor {
+				t.Errorf("Cursor = %d, want %d", r.Cursor, tt.wantCursor)
+			}
+			if tt.wantKind == v18.FloatZeroType {
+				if value, ok := got.Float32Value(); !ok || value != 0 {
+					t.Errorf("Float32Value() = %v, %v; want 0, true", value, ok)
+				}
+			} else {
+				if value, ok := got.Float64Value(); !ok || value != 0 {
+					t.Errorf("Float64Value() = %v, %v; want 0, true", value, ok)
+				}
+			}
+		})
+	}
+}
+
 func TestParseInt8ParameterAndAccessor(t *testing.T) {
 	tests := []struct {
 		name       string

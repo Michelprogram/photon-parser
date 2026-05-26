@@ -60,6 +60,8 @@ const (
 	SendReliableCommand         = types.SendReliableCommand
 	SendUnreliableCommand       = types.SendUnreliableCommand
 	SendReliableFragmentCommand = types.SendReliableFragmentCommand
+	SendUnreliableUnsequenced   = types.SendUnreliableUnsequenced
+	FetchServerTimestampCommand = types.FetchServerTimestampCommand
 )
 
 // Reliable payload message kinds (ReliableHeader.Type).

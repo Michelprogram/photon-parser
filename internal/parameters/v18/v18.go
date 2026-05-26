@@ -56,8 +56,10 @@ func (p Parameter) MarshalJSON() ([]byte, error) {
 		out.Decoded, _ = p.IntValue()
 	case StringType:
 		out.Decoded, _ = p.StringValue()
-	case Float32Type:
+	case Float32Type, FloatZeroType:
 		out.Decoded, _ = p.Float32Value()
+	case Float64Type, DoubleZeroType:
+		out.Decoded, _ = p.Float64Value()
 	case BooleanType:
 		out.Decoded, _ = p.BooleanValue()
 	case Float32ArrayType:
